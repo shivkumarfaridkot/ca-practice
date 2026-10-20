@@ -613,6 +613,30 @@ function prepCard(){
   h("button",{class:"btn alt",onclick:()=>{if(ok()){AndroidBridge.cancelPrep();msg.textContent="Turned off."}}},"Turn off")," ",
   h("button",{class:"btn alt",onclick:async()=>{if(!keyNow()){msg.textContent="Add your API key first.";return}msg.textContent="Preparing… keep the app open, this takes a few minutes.";try{const d=new Date().getHours()<12?today:addDays(today,1);await prepDay(d);msg.textContent="Ready for "+d+"."}catch(e){msg.textContent=e.message||"Could not prepare."}}},"Prepare now")),msg);
 }
+
+function attPresent(d){const a=ls("ca-att",{});return !!a[d]||(ls("ca-days",{})[d]||0)>0||(ls("ca-study",{})[d]||0)>0}
+let attM=null;
+function attPanel(p){
+ const a=ls("ca-att",{});if(!attM)attM=today.slice(0,7);
+ const [Y,M]=attM.split("-").map(Number),first=new Date(Y,M-1,1),dim=new Date(Y,M,0).getDate(),pad=n=>String(n).padStart(2,"0");
+ const mark=h("button",{class:"btn",onclick:()=>{const x=ls("ca-att",{});if(x[today])delete x[today];else x[today]=1;lsSet("ca-att",x);render()}},a[today]?"✓ Marked present today (tap to undo)":"Mark me present today");
+ let start=null;{const ks=Object.keys(a).concat(Object.keys(ls("ca-days",{})),Object.keys(ls("ca-study",{}))).sort();start=ks[0]||today}
+ let tot=0,pre=0,d=start;while(d<=today){tot++;if(attPresent(d))pre++;d=addDays(d,1)}
+ let cs=0;d=attPresent(today)?today:addDays(today,-1);while(attPresent(d)&&d>=start){cs++;d=addDays(d,-1)}
+ let best=0,run=0;d=start;while(d<=today){if(attPresent(d)){run++;best=Math.max(best,run)}else run=0;d=addDays(d,1)}
+ const pct=tot?Math.round(pre*100/tot):0;
+ const stat=(n,l)=>h("div",{style:"flex:1;min-width:90px;text-align:center"},h("div",{style:"font-size:22px;font-weight:700"},String(n)),h("div",{class:"mut",style:"font-size:12px"},l));
+ p.append(h("div",{class:"card"},h("b",{},"Attendance"),h("p",{class:"mut"},"A day counts as present when you tap the button, answer any question, or log study time."),mark,
+  h("div",{style:"display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"},stat(pct+"%","attendance"),stat(pre+"/"+tot,"days present"),stat(cs,"current streak"),stat(best,"best streak"))));
+ const grid=h("div",{style:"display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px"});
+ ["M","T","W","T","F","S","S"].forEach(x=>grid.append(h("div",{class:"mut",style:"text-align:center;font-size:12px"},x)));
+ for(let i=0;i<(first.getDay()+6)%7;i++)grid.append(h("div"));
+ for(let n=1;n<=dim;n++){const ds=Y+"-"+pad(M)+"-"+pad(n),on=attPresent(ds),fut=ds>today,isT=ds===today;
+  grid.append(h("div",{style:"text-align:center;padding:8px 0;border-radius:8px;font-size:13px;border:1px solid "+(isT?"var(--ac)":"var(--bd)")+";background:"+(on?"var(--okbg)":(fut?"transparent":"var(--badbg)"))+";color:"+(on?"var(--ok)":(fut?"var(--mut)":"var(--bad)"))},String(n)))}
+ const mv=dlt=>{const t=new Date(Y,M-1+dlt,1);attM=t.getFullYear()+"-"+pad(t.getMonth()+1);render()};
+ p.append(h("div",{class:"card"},h("div",{style:"display:flex;justify-content:space-between;align-items:center"},h("button",{class:"btn alt",onclick:()=>mv(-1)},"‹"),h("b",{},first.toLocaleDateString("en-IN",{month:"long",year:"numeric"})),h("button",{class:"btn alt",onclick:()=>mv(1)},"›")),grid,
+  h("p",{class:"mut",style:"font-size:12px"},"Green = present, red = absent, outlined = today.")));
+}
 function render(){
  $("#when").textContent=new Date(st.date+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"short",year:"numeric"})+" · "+cur.label;
  const tp=$("#tp");tp.replaceChildren(...[["Accounts","acc"],["Law","law"],["Quant","quant"],["Economics","eco"]].map(([n,k])=>h("div",{},h("b",{},n),cur.t[k])));
@@ -621,11 +645,12 @@ function render(){
  $("#go").disabled=anyBusy;stk();pushWidget();pushPool();
  $("#tabs").replaceChildren(...ORDER.map(k=>{const c=SUB[k],d=st.data[k];
   const prog=d?(c.kind==="mcq"?" "+Object.keys(st.sel[k]).length+"/"+d.length:" "+d.length):"";
-  return h("button",{class:"tab"+(tab===k?" on":""),onclick:()=>{tab=k;render()}},c.name+prog)}),h("button",{class:"tab"+(tab==="weak"?" on":""),onclick:()=>{tab="weak";render()}},"Weak topics"),...[["redo","Redo"],["mock","Mock"],["today","Today"],["tf","T/F"],["guess","Guess"],["graph","Graphs"],["cards","Cards"],["timer","Timer"],["saved","Saved"],["plan","Plan"],["prog","Progress"],["notes","Notes"],["set","Settings"]].map(([id,nm])=>h("button",{class:"tab"+(tab===id?" on":""),onclick:()=>{tab=id;render()}},nm)));
+  return h("button",{class:"tab"+(tab===k?" on":""),onclick:()=>{tab=k;render()}},c.name+prog)}),h("button",{class:"tab"+(tab==="weak"?" on":""),onclick:()=>{tab="weak";render()}},"Weak topics"),...[["redo","Redo"],["mock","Mock"],["today","Today"],["tf","T/F"],["guess","Guess"],["graph","Graphs"],["cards","Cards"],["timer","Timer"],["saved","Saved"],["plan","Plan"],["att","Attendance"],["prog","Progress"],["notes","Notes"],["set","Settings"]].map(([id,nm])=>h("button",{class:"tab"+(tab===id?" on":""),onclick:()=>{tab=id;render()}},nm)));
  const p=$("#panel");p.replaceChildren();
  if(tab==="weak"){weakPanel(p);return}
  if(tab==="set"){p.append(provCard());setPanel(p);return}
  if(tab==="plan"){planPanel(p);return}
+ if(tab==="att"){attPanel(p);return}
  if(tab==="prog"){progPanel(p);p.append(hoursCard(),heatCard(),histCard());return}
  if(tab==="notes"){notesPanel(p);return}
  if(tab==="redo"){redoPanel(p);return}
