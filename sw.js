@@ -1,4 +1,4 @@
-const C="ca-practice-v2",F=["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png"];
+const C="ca-practice-v5",F=["./","./index.html","./manifest.json","./icon-192.png","./icon-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(F)));self.skipWaiting()});
 self.addEventListener("activate",e=>e.waitUntil(clients.claim()));
 self.addEventListener("fetch",e=>{if(e.request.method!=="GET"||new URL(e.request.url).origin!==location.origin)return;
